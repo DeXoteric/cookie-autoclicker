@@ -1,7 +1,12 @@
 import time
+from pathlib import Path
 
 from selenium import webdriver
-from selenium.common import NoSuchElementException
+from selenium.common import (
+    ElementNotInteractableException,
+    NoSuchElementException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as ec
@@ -15,6 +20,7 @@ class CookieAutoclicker:
             "/home/dexoteric/Downloads/uBlock0_1.58.0.firefox.signed.xpi"
         )
         self.page_url: str = "https://orteil.dashnet.org/cookieclicker/"
+        self.options_btn: WebElement
         self.big_cookie: WebElement
 
     def setup(self) -> None:
@@ -30,11 +36,19 @@ class CookieAutoclicker:
         WebDriverWait(self.driver, 5).until(
             ec.element_to_be_clickable((By.ID, "bigCookie"))
         )
+
         self.big_cookie = self.driver.find_element(By.ID, "bigCookie")
 
         time.sleep(1)
 
+        self.options_btn = self.driver.find_element(By.CSS_SELECTOR, ".subButton")
+
         self.driver.find_element(By.CSS_SELECTOR, ".cc_btn").click()
+
+        if Path("./save.txt").exists():
+            self.auto_load()
+
+        self.volume_off()
 
     def cookie_autoclicker(self) -> None:
         while True:
@@ -44,25 +58,119 @@ class CookieAutoclicker:
             self.buy_upgrades()
             self.buy_products()
 
+            self.close_notes()
+            self.auto_save()
+
     def click_lucky_cookie(self):
+        while True:
+            try:
+                self.driver.find_element(By.CLASS_NAME, "shimmer").click()
+            except ElementNotInteractableException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
+
+    def buy_upgrades(self):
+        while True:
+            try:
+                upgrades = self.driver.find_elements(
+                    By.CSS_SELECTOR, ".crate.upgrade.enabled"
+                )
+                for upgrade in upgrades:
+                    upgrade.click()
+            except StaleElementReferenceException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
+
+    def buy_products(self):
+        while True:
+            try:
+                products = self.driver.find_elements(
+                    By.CSS_SELECTOR, ".product.unlocked.enabled"
+                )
+                for product in products:
+                    product.click()
+            except StaleElementReferenceException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
+
+    def close_notes(self):
+        while True:
+            try:
+                notes = self.driver.find_elements(
+                    By.CSS_SELECTOR, ".framed.note.haspic.hasdesc"
+                )
+                for note in notes:
+                    close_button = note.find_element(By.CSS_SELECTOR, ".close")
+                    close_button.click()
+            except StaleElementReferenceException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
+
+    def auto_save(self):
         try:
-            lucky_cookie = self.driver.find_element(By.CLASS_NAME, "shimmer")
+            self.driver.find_element(By.XPATH, "//*/h3[contains(text(), 'Game saved')]")
         except NoSuchElementException:
             pass
         else:
-            lucky_cookie.click()
+            self.save_to_file()
 
-    def buy_upgrades(self):
-        upgrades = self.driver.find_elements(By.CSS_SELECTOR, ".crate.upgrade.enabled")
-        for upgrade in upgrades:
-            upgrade.click()
+    def auto_load(self):
+        self.options_btn.click()
 
-    def buy_products(self):
-        products = self.driver.find_elements(
-            By.CSS_SELECTOR, ".product.unlocked.enabled"
+        import_save_btn = self.driver.find_element(
+            By.XPATH, "//*/a[contains(text(), 'Import save')]"
         )
-        for product in products:
-            product.click()
+        import_save_btn.click()
+
+        string_to_load = ""
+        with open("./save.txt", "r", encoding="utf-8") as file:
+            string_to_load = file.read()
+
+        text_area = self.driver.find_element(By.CSS_SELECTOR, "#textareaPrompt")
+        text_area.send_keys(string_to_load)
+
+        load_btn = self.driver.find_element(By.CSS_SELECTOR, "#promptOption0")
+        load_btn.click()
+
+        self.options_btn.click()
+
+    def save_to_file(self):
+        self.driver.find_element(
+            By.CSS_SELECTOR, ".framed.note.nopic.nodesc"
+        ).find_element(By.CSS_SELECTOR, ".close").click()
+
+        self.options_btn.click()
+
+        export_save_btn = self.driver.find_element(
+            By.XPATH, "//*/a[contains(text(), 'Export save')]"
+        )
+        export_save_btn.click()
+
+        string_to_save = self.driver.find_element(
+            By.CSS_SELECTOR, "#textareaPrompt"
+        ).get_attribute("value")
+        with open("./save.txt", "w", encoding="utf-8") as file:
+            file.write(str(string_to_save))
+
+        done_btn = self.driver.find_element(By.CSS_SELECTOR, "#promptOption0")
+        done_btn.click()
+
+        self.options_btn.click()
+
+    def volume_off(self):
+        self.options_btn.click()
+        volume_slider = self.driver.find_element(By.CSS_SELECTOR, "#volumeSlider")
+        volume_slider.click()
+        volume_slider.send_keys(webdriver.Keys.HOME)
+        self.options_btn.click()
 
     def run(self):
         self.setup()
