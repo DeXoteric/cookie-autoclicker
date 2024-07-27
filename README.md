@@ -7,6 +7,7 @@ CookieAutoclicker is a simple automation script for the game Cookie Clicker, cre
 - Automatically clicks the big cookie.
 - Automatically clicks lucky cookies when they appear.
 - Automatically purchases available upgrades and products.
+- Automatically loads and saves state of the game.
 
 ## Requirements
 
@@ -20,13 +21,11 @@ CookieAutoclicker is a simple automation script for the game Cookie Clicker, cre
 1. Clone this repository using HTTPS:
    ```sh
    git clone https://github.com/DeXoteric/CookieAutoclicker.git
-   cd CookieAutoclicker
    ```
 
    or using SSH:
    ```sh
    git clone git@github.com:DeXoteric/CookieAutoclicker.git
-   cd CookieAutoclicker
    ```
 
 2. Install the required Python packages, including WebDriver:
