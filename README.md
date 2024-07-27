@@ -1,4 +1,4 @@
-# CookieAutoclicker
+# (Work In Progress) CookieAutoclicker
 
 CookieAutoclicker is a simple automation script for the game Cookie Clicker, created using Python and Selenium.
 
@@ -59,7 +59,7 @@ CookieAutoclicker is a simple automation script for the game Cookie Clicker, cre
 
 ## Notes
 
-- If you do not wish to install uBlock Origin, you can skip this step by commenting out the following line in the `setup` method:
+- If you do not wish to install uBlock Origin, you can skip this step by commenting out the following lines in the `setup` method:
   ```python
   # self.ublock_path: str = ("/path/to/addon")
   # self.driver.install_addon(self.ublock_path)
