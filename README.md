@@ -68,6 +68,3 @@ CookieAutoclicker is a simple automation script for the game Cookie Clicker, cre
 
 This script is intended for educational purposes only. It is not designed to be an efficient or optimal way to play Cookie Clicker. It serves as a basic example of web automation with Selenium. Use at your own risk.
 
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
