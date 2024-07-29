@@ -13,14 +13,15 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
+PAGE_URL: str = "https://orteil.dashnet.org/cookieclicker/"
+ADDBLOCK_URL: str = "/home/dexoteric/Downloads/uBlock0_1.58.0.firefox.signed.xpi"
+MAX_INTERVAL: float = 300
+INTERVAL_INCREMENT: float = 1.0025
+
 
 class CookieAutoclicker:
     def __init__(self) -> None:
         self.driver: webdriver.Firefox
-        self.ublock_path: str = (
-            "/home/dexoteric/Downloads/uBlock0_1.58.0.firefox.signed.xpi"
-        )
-        self.page_url: str = "https://orteil.dashnet.org/cookieclicker/"
         self.options_btn: WebElement
         self.big_cookie: WebElement
         self.periodic_check_time: float
@@ -29,9 +30,9 @@ class CookieAutoclicker:
 
     def setup(self) -> None:
         self.driver = webdriver.Firefox()
-        self.driver.install_addon(self.ublock_path)
+        self.driver.install_addon(ADDBLOCK_URL)
 
-        self.driver.get(self.page_url)
+        self.driver.get(PAGE_URL)
 
         WebDriverWait(self.driver, 5).until(
             ec.element_to_be_clickable((By.ID, "langSelect-EN"))
@@ -67,19 +68,31 @@ class CookieAutoclicker:
     def cookie_autoclicker(self) -> None:
         while True:
             self.click_big_cookie()
+            self.click_lucky_cookie()
 
-            if time.time() > self.periodic_check_time:
-                self.click_lucky_cookie()
-                self.buy_upgrades()
-                self.close_notes()
-                self.periodic_check_time = time.time() + 5
+            is_buff_displayed: bool
+            try:
+                is_buff_displayed = self.driver.find_element(
+                    By.CSS_SELECTOR, ".crate.enabled.buff"
+                ).is_displayed()
+            except NoSuchElementException:
+                is_buff_displayed = False
 
-            if time.time() > self.next_purchase_time:
-                self.buy_products()
-                if self.purchase_interval_increment < 60:
-                    self.purchase_interval_increment += 0.1
+            if not is_buff_displayed:
+                if time.time() > self.periodic_check_time:
+                    self.buy_upgrades()
+                    self.close_notes()
+                    self.periodic_check_time = time.time() + 5
 
-                self.next_purchase_time = time.time() + self.purchase_interval_increment
+                if time.time() > self.next_purchase_time:
+                    self.buy_products()
+                    if self.purchase_interval_increment < MAX_INTERVAL:
+                        self.purchase_interval_increment *= INTERVAL_INCREMENT
+                        print(self.purchase_interval_increment)
+
+                    self.next_purchase_time = (
+                        time.time() + self.purchase_interval_increment
+                    )
 
             self.auto_save()
 
@@ -89,7 +102,7 @@ class CookieAutoclicker:
         except ElementClickInterceptedException:
             pass
         finally:
-            time.sleep(0.125)
+            time.sleep(0.1)
 
     def click_lucky_cookie(self):
         while True:
