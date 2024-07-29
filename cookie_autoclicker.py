@@ -2,11 +2,10 @@ import time
 from pathlib import Path
 
 from selenium import webdriver
-from selenium.common import (
-    ElementNotInteractableException,
-    NoSuchElementException,
-    StaleElementReferenceException,
-)
+from selenium.common import (ElementClickInterceptedException,
+                             ElementNotInteractableException,
+                             NoSuchElementException,
+                             StaleElementReferenceException)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as ec
@@ -22,6 +21,9 @@ class CookieAutoclicker:
         self.page_url: str = "https://orteil.dashnet.org/cookieclicker/"
         self.options_btn: WebElement
         self.big_cookie: WebElement
+        self.periodic_check_time: float
+        self.next_purchase_time: float
+        self.purchase_interval_increment: float
 
     def setup(self) -> None:
         self.driver = webdriver.Firefox()
@@ -50,22 +52,50 @@ class CookieAutoclicker:
 
         self.volume_off()
 
+        self.periodic_check_time = time.time() + 5
+
+        if Path("./delay.txt").exists():
+            with open("./delay.txt", "r", encoding="utf-8") as file:
+                self.purchase_interval_increment = float(file.read())
+        else:
+            self.purchase_interval_increment = 0.1
+
+        self.next_purchase_time = time.time() + self.purchase_interval_increment
+
     def cookie_autoclicker(self) -> None:
         while True:
-            self.big_cookie.click()
-
             self.click_lucky_cookie()
-            self.buy_upgrades()
-            self.buy_products()
 
-            self.close_notes()
+            if time.time() > self.periodic_check_time:
+                self.click_lucky_cookie()
+                self.buy_upgrades()
+                self.close_notes()
+                self.periodic_check_time = time.time() + 5
+
+            if time.time() > self.next_purchase_time:
+                self.buy_products()
+                if self.purchase_interval_increment < 60:
+                    self.purchase_interval_increment += 0.1
+
+                self.next_purchase_time = time.time() + self.purchase_interval_increment
+
             self.auto_save()
+
+    def click_big_cookie(self):
+        try:
+            self.big_cookie.click()
+        except ElementClickInterceptedException:
+            pass
+        finally:
+            time.sleep(0.125)
 
     def click_lucky_cookie(self):
         while True:
             try:
                 self.driver.find_element(By.CLASS_NAME, "shimmer").click()
             except ElementNotInteractableException:
+                continue
+            except ElementClickInterceptedException:
                 continue
             except NoSuchElementException:
                 pass
@@ -91,6 +121,7 @@ class CookieAutoclicker:
                 products = self.driver.find_elements(
                     By.CSS_SELECTOR, ".product.unlocked.enabled"
                 )
+                products.reverse()
                 for product in products:
                     product.click()
             except StaleElementReferenceException:
@@ -121,6 +152,7 @@ class CookieAutoclicker:
             pass
         else:
             self.save_to_file()
+            self.save_purchase_interval_to_file()
 
     def auto_load(self):
         self.options_btn.click()
@@ -164,6 +196,10 @@ class CookieAutoclicker:
         done_btn.click()
 
         self.options_btn.click()
+
+    def save_purchase_interval_to_file(self):
+        with open("./delay.txt", "w", encoding="utf-8") as file:
+            file.write(str(self.purchase_interval_increment))
 
     def volume_off(self):
         self.options_btn.click()
