@@ -2,10 +2,12 @@ import time
 from pathlib import Path
 
 from selenium import webdriver
-from selenium.common import (ElementClickInterceptedException,
-                             ElementNotInteractableException,
-                             NoSuchElementException,
-                             StaleElementReferenceException)
+from selenium.common import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+    NoSuchElementException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as ec
@@ -64,7 +66,7 @@ class CookieAutoclicker:
 
     def cookie_autoclicker(self) -> None:
         while True:
-            self.click_lucky_cookie()
+            self.click_big_cookie()
 
             if time.time() > self.periodic_check_time:
                 self.click_lucky_cookie()
