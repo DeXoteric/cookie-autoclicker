@@ -19,7 +19,8 @@ ADDBLOCK_URL: str = "/home/dexoteric/Downloads/uBlock0_1.58.0.firefox.signed.xpi
 MAX_INTERVAL: float = 300
 INTERVAL_INCREMENT: float = 1.005
 INITIAL_INTERVAL: float = 15
-KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.pause}
+PAUSE_KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.pause}
+QUIT_KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.esc}
 
 
 class CookieAutoclicker:
@@ -127,6 +128,8 @@ class CookieAutoclicker:
             except ElementNotInteractableException:
                 continue
             except ElementClickInterceptedException:
+                continue
+            except StaleElementReferenceException:
                 continue
             except NoSuchElementException:
                 pass
@@ -265,9 +268,14 @@ class CookieAutoclicker:
         self.options_btn.click()
 
     def on_press(self, key):
-        if key in KEY_COMBINATION:
+        if key in QUIT_KEY_COMBINATION:
             self.keys_pressed.add(key)
-            if all(key in self.keys_pressed for key in KEY_COMBINATION):
+            if all(key in self.keys_pressed for key in QUIT_KEY_COMBINATION):
+                self.driver.quit()
+
+        if key in PAUSE_KEY_COMBINATION:
+            self.keys_pressed.add(key)
+            if all(key in self.keys_pressed for key in PAUSE_KEY_COMBINATION):
                 self.is_game_paused = not self.is_game_paused
 
     def on_release(self, key):
