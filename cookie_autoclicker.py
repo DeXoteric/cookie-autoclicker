@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 
+from pynput import keyboard
 from selenium import webdriver
 from selenium.common import (
     ElementClickInterceptedException,
@@ -16,7 +17,9 @@ from selenium.webdriver.support.wait import WebDriverWait
 PAGE_URL: str = "https://orteil.dashnet.org/cookieclicker/"
 ADDBLOCK_URL: str = "/home/dexoteric/Downloads/uBlock0_1.58.0.firefox.signed.xpi"
 MAX_INTERVAL: float = 300
-INTERVAL_INCREMENT: float = 1.0025
+INTERVAL_INCREMENT: float = 1.005
+INITIAL_INTERVAL: float = 15
+KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.pause}
 
 
 class CookieAutoclicker:
@@ -27,6 +30,9 @@ class CookieAutoclicker:
         self.periodic_check_time: float
         self.next_purchase_time: float
         self.purchase_interval_increment: float
+        self.is_buff_active: float = False
+        self.is_game_paused: float = False
+        self.keys_pressed: set = set()
 
     def setup(self) -> None:
         self.driver = webdriver.Firefox()
@@ -61,40 +67,50 @@ class CookieAutoclicker:
             with open("./delay.txt", "r", encoding="utf-8") as file:
                 self.purchase_interval_increment = float(file.read())
         else:
-            self.purchase_interval_increment = 0.1
+            self.purchase_interval_increment = INITIAL_INTERVAL
 
         self.next_purchase_time = time.time() + self.purchase_interval_increment
 
+        listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        listener.start()
+
     def cookie_autoclicker(self) -> None:
         while True:
-            self.click_big_cookie()
-            self.click_lucky_cookie()
+            if not self.is_game_paused:
+                self.click_big_cookie()
+                self.click_lucky_cookie()
 
-            is_buff_displayed: bool
-            try:
-                is_buff_displayed = self.driver.find_element(
-                    By.CSS_SELECTOR, ".crate.enabled.buff"
-                ).is_displayed()
-            except NoSuchElementException:
-                is_buff_displayed = False
+                try:
+                    self.is_buff_active = self.driver.find_element(
+                        By.CSS_SELECTOR, ".crate.enabled.buff"
+                    ).is_displayed()
+                except StaleElementReferenceException:
+                    continue
+                except NoSuchElementException:
+                    self.is_buff_active = False
 
-            if not is_buff_displayed:
-                if time.time() > self.periodic_check_time:
-                    self.buy_upgrades()
-                    self.close_notes()
-                    self.periodic_check_time = time.time() + 5
+                if not self.is_buff_active:
+                    if time.time() > self.periodic_check_time:
+                        self.buy_upgrades()
+                        self.close_notes()
+                        self.periodic_check_time = time.time() + 5
 
-                if time.time() > self.next_purchase_time:
-                    self.buy_products()
-                    if self.purchase_interval_increment < MAX_INTERVAL:
-                        self.purchase_interval_increment *= INTERVAL_INCREMENT
-                        print(self.purchase_interval_increment)
+                    if time.time() > self.next_purchase_time:
+                        self.buy_products()
+                        if self.purchase_interval_increment < MAX_INTERVAL:
+                            self.purchase_interval_increment *= INTERVAL_INCREMENT
+                            print(self.purchase_interval_increment)
 
-                    self.next_purchase_time = (
-                        time.time() + self.purchase_interval_increment
-                    )
+                        self.next_purchase_time = (
+                            time.time() + self.purchase_interval_increment
+                        )
 
-            self.auto_save()
+                self.spawn_golden_cookie()
+
+                self.auto_save()
+
+            elif self.is_game_paused:
+                time.sleep(0.1)
 
     def click_big_cookie(self):
         try:
@@ -139,6 +155,31 @@ class CookieAutoclicker:
                 products.reverse()
                 for product in products:
                     product.click()
+            except StaleElementReferenceException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
+
+    def spawn_golden_cookie(self):
+        while True:
+            try:
+                mana_text = self.driver.find_element(
+                    By.CSS_SELECTOR, "#grimoireBarText"
+                )
+
+                current_mana = int(mana_text.text.split("/")[0].strip())
+                max_mana = int(mana_text.text.split("/")[1].split(" ")[0].strip())
+                is_mana_full = current_mana == max_mana
+
+                mana_cost = int(
+                    self.driver.find_element(
+                        By.CSS_SELECTOR, "#grimoirePrice1"
+                    ).text.strip()
+                )
+
+                if self.is_buff_active and is_mana_full and current_mana >= mana_cost:
+                    self.driver.find_element(By.CSS_SELECTOR, "#grimoireSpell1").click()
             except StaleElementReferenceException:
                 continue
             except NoSuchElementException:
@@ -222,6 +263,16 @@ class CookieAutoclicker:
         volume_slider.click()
         volume_slider.send_keys(webdriver.Keys.HOME)
         self.options_btn.click()
+
+    def on_press(self, key):
+        if key in KEY_COMBINATION:
+            self.keys_pressed.add(key)
+            if all(key in self.keys_pressed for key in KEY_COMBINATION):
+                self.is_game_paused = not self.is_game_paused
+
+    def on_release(self, key):
+        if key in self.keys_pressed:
+            self.keys_pressed.remove(key)
 
     def run(self):
         self.setup()
