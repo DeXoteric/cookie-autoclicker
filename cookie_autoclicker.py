@@ -1,3 +1,4 @@
+import random
 import time
 from pathlib import Path
 
@@ -16,11 +17,14 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 PAGE_URL: str = "https://orteil.dashnet.org/cookieclicker/"
 ADDBLOCK_URL: str = "/home/dexoteric/Downloads/uBlock0_1.58.0.firefox.signed.xpi"
-MAX_INTERVAL: float = 300
-INTERVAL_INCREMENT: float = 1.005
+MAX_INTERVAL: float = 600
+INTERVAL_INCREMENT: float = 1.01
 INITIAL_INTERVAL: float = 15
 PAUSE_KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.pause}
-QUIT_KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.esc}
+SAVE_KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.scroll_lock}
+CLICK_KEY_COMBINATION: set = {keyboard.Key.cmd, keyboard.Key.print_screen}
+INTERVAL_CHANCE: float = 0.1
+INTERVAL_MULTIPLAYER: float = 5
 
 
 class CookieAutoclicker:
@@ -34,6 +38,7 @@ class CookieAutoclicker:
         self.is_buff_active: float = False
         self.is_game_paused: float = False
         self.keys_pressed: set = set()
+        self.memory_management_interval: float
 
     def setup(self) -> None:
         self.driver = webdriver.Firefox()
@@ -72,6 +77,8 @@ class CookieAutoclicker:
 
         self.next_purchase_time = time.time() + self.purchase_interval_increment
 
+        self.memory_management_interval = time.time() + 300
+
         listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
         listener.start()
 
@@ -90,25 +97,32 @@ class CookieAutoclicker:
                 except NoSuchElementException:
                     self.is_buff_active = False
 
-                if not self.is_buff_active:
-                    if time.time() > self.periodic_check_time:
-                        self.buy_upgrades()
-                        self.close_notes()
-                        self.periodic_check_time = time.time() + 5
+                if time.time() > self.periodic_check_time:
+                    self.close_notes()
+                    self.periodic_check_time = time.time() + 5
 
+                if not self.is_buff_active:
                     if time.time() > self.next_purchase_time:
+                        self.buy_upgrades()
                         self.buy_products()
                         if self.purchase_interval_increment < MAX_INTERVAL:
                             self.purchase_interval_increment *= INTERVAL_INCREMENT
                             print(self.purchase_interval_increment)
-
-                        self.next_purchase_time = (
-                            time.time() + self.purchase_interval_increment
-                        )
+                        if random.random() <= INTERVAL_CHANCE:
+                            print(f"x{INTERVAL_MULTIPLAYER}")
+                            self.next_purchase_time = time.time() + (
+                                self.purchase_interval_increment * INTERVAL_MULTIPLAYER
+                            )
+                        else:
+                            print(self.purchase_interval_increment)
+                            self.next_purchase_time = (
+                                time.time() + self.purchase_interval_increment
+                            )
+                    self.auto_save()
 
                 self.spawn_golden_cookie()
 
-                self.auto_save()
+                time.sleep(0.1)
 
             elif self.is_game_paused:
                 time.sleep(0.1)
@@ -118,8 +132,6 @@ class CookieAutoclicker:
             self.big_cookie.click()
         except ElementClickInterceptedException:
             pass
-        finally:
-            time.sleep(0.1)
 
     def click_lucky_cookie(self):
         while True:
@@ -138,15 +150,17 @@ class CookieAutoclicker:
     def buy_upgrades(self):
         while True:
             try:
-                upgrades = self.driver.find_elements(
-                    By.CSS_SELECTOR, ".crate.upgrade.enabled"
-                )
+                upgrades = self.driver.find_element(
+                    By.CSS_SELECTOR, "#upgrades"
+                ).find_elements(By.CSS_SELECTOR, ".crate.upgrade.enabled")
                 for upgrade in upgrades:
                     upgrade.click()
             except StaleElementReferenceException:
                 continue
             except NoSuchElementException:
                 pass
+            finally:
+                time.sleep(0.1)
             break
 
     def buy_products(self):
@@ -162,6 +176,8 @@ class CookieAutoclicker:
                 continue
             except NoSuchElementException:
                 pass
+            finally:
+                time.sleep(0.1)
             break
 
     def spawn_golden_cookie(self):
@@ -187,6 +203,8 @@ class CookieAutoclicker:
                 continue
             except NoSuchElementException:
                 pass
+            except ValueError:
+                continue
             break
 
     def close_notes(self):
@@ -234,9 +252,12 @@ class CookieAutoclicker:
         self.options_btn.click()
 
     def save_to_file(self):
-        self.driver.find_element(
-            By.CSS_SELECTOR, ".framed.note.nopic.nodesc"
-        ).find_element(By.CSS_SELECTOR, ".close").click()
+        try:
+            self.driver.find_element(
+                By.CSS_SELECTOR, ".framed.note.nopic.nodesc"
+            ).find_element(By.CSS_SELECTOR, ".close").click()
+        except NoSuchElementException:
+            pass
 
         self.options_btn.click()
 
@@ -268,15 +289,18 @@ class CookieAutoclicker:
         self.options_btn.click()
 
     def on_press(self, key):
-        if key in QUIT_KEY_COMBINATION:
-            self.keys_pressed.add(key)
-            if all(key in self.keys_pressed for key in QUIT_KEY_COMBINATION):
-                self.driver.quit()
-
         if key in PAUSE_KEY_COMBINATION:
             self.keys_pressed.add(key)
             if all(key in self.keys_pressed for key in PAUSE_KEY_COMBINATION):
                 self.is_game_paused = not self.is_game_paused
+        if key in SAVE_KEY_COMBINATION:
+            self.keys_pressed.add(key)
+            if all(key in self.keys_pressed for key in SAVE_KEY_COMBINATION):
+                self.save_to_file()
+        if key in CLICK_KEY_COMBINATION:
+            self.keys_pressed.add(key)
+            if all(key in self.keys_pressed for key in CLICK_KEY_COMBINATION):
+                self.big_cookie.click()
 
     def on_release(self, key):
         if key in self.keys_pressed:
