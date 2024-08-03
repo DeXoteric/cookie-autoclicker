@@ -37,7 +37,6 @@ class CookieAutoclicker:
         self.is_buff_active: float = False
         self.is_game_paused: float = False
         self.keys_pressed: set = set()
-        self.memory_management_interval: float
 
     def setup(self) -> None:
         self.driver = webdriver.Firefox()
@@ -68,15 +67,13 @@ class CookieAutoclicker:
 
         self.periodic_check_time = time.time() + 5
 
+        self.purchase_interval_increment = INITIAL_INTERVAL
+
         if Path("./delay.txt").exists():
             with open("./delay.txt", "r", encoding="utf-8") as file:
                 self.purchase_interval_increment = float(file.read())
-        else:
-            self.purchase_interval_increment = INITIAL_INTERVAL
 
         self.next_purchase_time = time.time() + self.purchase_interval_increment
-
-        self.memory_management_interval = time.time() + 300
 
         listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
         listener.start()
@@ -102,11 +99,10 @@ class CookieAutoclicker:
 
                 if not self.is_buff_active:
                     if time.time() > self.next_purchase_time:
+                        self.buy_buildings()
                         self.buy_upgrades()
-                        self.buy_products()
                         if self.purchase_interval_increment < MAX_INTERVAL:
                             self.purchase_interval_increment *= INTERVAL_INCREMENT
-                            print(self.purchase_interval_increment)
                         if random.random() <= INTERVAL_CHANCE:
                             print(f"x{INTERVAL_MULTIPLAYER}")
                             self.next_purchase_time = time.time() + (
@@ -118,7 +114,6 @@ class CookieAutoclicker:
                                 time.time() + self.purchase_interval_increment
                             )
                     self.auto_save()
-
                 self.spawn_golden_cookie()
 
                 time.sleep(0.1)
@@ -158,25 +153,21 @@ class CookieAutoclicker:
                 continue
             except NoSuchElementException:
                 pass
-            finally:
-                time.sleep(0.1)
             break
 
-    def buy_products(self):
+    def buy_buildings(self):
         while True:
             try:
-                products = self.driver.find_elements(
+                buildings = self.driver.find_elements(
                     By.CSS_SELECTOR, ".product.unlocked.enabled"
                 )
-                products.reverse()
-                for product in products:
-                    product.click()
+                buildings.reverse()
+                for building in buildings:
+                    building.click()
             except StaleElementReferenceException:
                 continue
             except NoSuchElementException:
                 pass
-            finally:
-                time.sleep(0.1)
             break
 
     def spawn_golden_cookie(self):
@@ -195,11 +186,11 @@ class CookieAutoclicker:
                 if self.is_buff_active and is_mana_full and current_mana >= mana_cost:
                     self.driver.find_element(By.ID, "grimoireSpell1").click()
             except StaleElementReferenceException:
-                continue
+                break
             except NoSuchElementException:
-                pass
+                break
             except ValueError:
-                continue
+                break
             break
 
     def close_notes(self):
