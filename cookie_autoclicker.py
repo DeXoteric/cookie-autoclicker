@@ -83,6 +83,7 @@ class CookieAutoclicker:
             if not self.is_game_paused:
                 self.click_big_cookie()
                 self.click_lucky_cookie()
+                self.click_fortune()
 
                 try:
                     self.is_buff_active = self.driver.find_element(
@@ -131,6 +132,21 @@ class CookieAutoclicker:
         while True:
             try:
                 self.driver.find_element(By.CLASS_NAME, "shimmer").click()
+            except ElementNotInteractableException:
+                continue
+            except ElementClickInterceptedException:
+                continue
+            except StaleElementReferenceException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
+
+    def click_fortune(self):
+        while True:
+            try:
+                news_message = self.driver.find_element(By.ID, "commentsText1")
+                news_message.find_element(By.CLASS_NAME, "fortune").click()
             except ElementNotInteractableException:
                 continue
             except ElementClickInterceptedException:
@@ -198,6 +214,9 @@ class CookieAutoclicker:
             try:
                 notes = self.driver.find_elements(
                     By.CSS_SELECTOR, ".framed.note.haspic.hasdesc"
+                )
+                notes += self.driver.find_elements(
+                    By.CSS_SELECTOR, ".framed.note.haspic.nodesc"
                 )
                 for note in notes:
                     close_button = note.find_element(By.CLASS_NAME, "close")
