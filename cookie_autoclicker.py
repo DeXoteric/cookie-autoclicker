@@ -160,11 +160,17 @@ class CookieAutoclicker:
     def buy_upgrades(self):
         while True:
             try:
-                upgrades = self.driver.find_element(By.ID, "upgrades").find_elements(
-                    By.CSS_SELECTOR, ".crate.upgrade.enabled"
-                )
-                for upgrade in upgrades:
-                    upgrade.click()
+                is_buy_all_displayed = self.driver.find_element(
+                    By.ID, "storeBuyAll"
+                ).is_displayed()
+                if is_buy_all_displayed:
+                    self.driver.find_element(By.ID, "storeBuyAll").click()
+                else:
+                    upgrades = self.driver.find_element(
+                        By.ID, "upgrades"
+                    ).find_elements(By.CSS_SELECTOR, ".crate.upgrade.enabled")
+                    for upgrade in upgrades:
+                        upgrade.click()
             except StaleElementReferenceException:
                 continue
             except NoSuchElementException:
@@ -257,12 +263,16 @@ class CookieAutoclicker:
         self.options_btn.click()
 
     def save_to_file(self):
-        try:
-            self.driver.find_element(
-                By.CSS_SELECTOR, ".framed.note.nopic.nodesc"
-            ).find_element(By.CLASS_NAME, "close").click()
-        except NoSuchElementException:
-            pass
+        while True:
+            try:
+                self.driver.find_element(
+                    By.CSS_SELECTOR, ".framed.note.nopic.nodesc"
+                ).find_element(By.CLASS_NAME, "close").click()
+            except StaleElementReferenceException:
+                continue
+            except NoSuchElementException:
+                pass
+            break
 
         self.options_btn.click()
 
